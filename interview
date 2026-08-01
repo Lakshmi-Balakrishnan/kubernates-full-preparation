@@ -1,0 +1,130 @@
+POD  -the three most common ways to create a Pod
+1. Create a Pod directly (imperative command)
+kubectl run nginx --image=nginx:latest
+kubectl run webserver --image=httpd:latest     
+verify :   kubectl get pods
+kubectl get pod -o wide
+kubectl describe pod nginx
+kubectl exec -it nginx -- sh      # apt update ,apt install curl -y  ,curl localhost   For the Nginx image, use sh because many minimal images don't include bash.
+-------------------------------------------------------------------------------------------------------------------
+
+2. Generate YAML using --dry-run 
+kubectl run mypod --image=nginx:latest --dry-run=client -o yaml > mypod.yaml
+This does not create the Pod. It only generates the YAML file.
+
+kubectl apply -f mypod.yaml
+
+verify :  kubectl get pods
+kubectl describe pod mypod
+kubectl logs mypod
+kubectl exec -it mypod -- sh 
+-------------------------------------------------------------------------------------------------------------------------
+3. Write the YAML manually
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx
+spec:
+  containers:
+    - name: nginx
+      image: nginx:latest
+      
+ kubectl apply -f nginx.yaml
+ 
+verify:  kubectl get pods
+kubectl describe pod nginx
+kubectl logs nginx
+kubectl exec -it nginx -- sh
+ --------------------------------------------------------------------------------------------------------------------------------
+ 
+ Commands you should remember
+ # Create
+kubectl run nginx --image=nginx:latest
+
+# Generate YAML
+kubectl run mypod --image=nginx:latest --dry-run=client -o yaml > mypod.yaml
+
+# Create from YAML
+kubectl apply -f mypod.yaml
+
+# List Pods
+kubectl get pods
+
+# Pod details
+kubectl describe pod nginx
+
+# Pod IP and node
+kubectl get pod -o wide
+
+# View logs
+kubectl logs nginx
+
+# Access the container
+kubectl exec -it nginx -- sh
+
+# Delete a Pod
+kubectl delete pod nginx 
+----------------------------------------------------------------------------
+Web Servers
+bash
+kubectl run nginx --image=nginx
+kubectl run apache --image=httpd
+Databases
+bash
+kubectl run mysql-db --image=mysql --env="MYSQL_ROOT_PASSWORD=pass123"
+kubectl run redis-cache --image=redis
+kubectl run postgres-db --image=postgres --env="POSTGRES_PASSWORD=pass123"
+Lightweight Testing Images (very useful for K8s practice)
+bash
+kubectl run busybox --image=busybox --command -- sleep 3600
+kubectl run alpine --image=alpine --command -- sleep 3600
+
+இது இரண்டும் ரொம்ப சின்ன images (5-10MB), quick debugging/testing-க்கு perfect.
+
+Application Runtimes
+bash
+kubectl run python-app --image=python:3.12
+kubectl run node-app --image=node:20
+---------------------------------------------------------------------------------------
+
+Step 1: busybox pod create பண்ணுங்க
+bash
+kubectl run busybox --image=busybox --command -- sleep 3600
+
+ஏன் --command -- sleep 3600 extra add பண்ணோம்?
+busybox image ஒரு web server இல்ல — அதுக்கு default-ஆ run ஆக என்ன command குடுக்கணும்-ன்னு தெரியாது. Command குடுக்காம விட்டா, container start ஆகி உடனே stop ஆயிடும் (nothing to run, so it exits). அதனால sleep 3600 சொல்லி — "1 hour (3600 seconds) sleep பண்ணு, அதனால pod alive-ஆ இரு"-ன்னு சொல்றோம்.
+
+Step 2: Pod running-ஆ இருக்கான்னு check பண்ணுங்க
+bash
+kubectl get pods
+
+STATUS column Running காட்டணும்.
+
+Step 3: உள்ள போங்க (exec)
+bash
+kubectl exec -it busybox -- sh            
+
+இப்போ உங்க terminal prompt மாறி, busybox container உள்ள இருக்கீங்க (prompt / # மாதிரி காட்டும்).
+
+Step 4: உள்ள commands try பண்ணுங்க
+bash
+ls
+ps
+whoami
+hostname
+Step 5: வெளிய வர
+bash
+exit
+------------------------------------------------------------------------------------------------
+sh shell start ஆகும் → எந்த input-உம் கிடைக்காம → உடனே exit ஆகிடும் (exit code 0 = success-ஆ முடிச்சுது)
+Pod default-ஆ restartPolicy: Always வெச்சிருக்கும் → container exit ஆனா, kubelet மறுபடி மறுபடி restart பண்ணிக்கிட்டே இருக்கும்
+STATUS: Completed — இது crash இல்ல, "successfully exited" என்று அர்த்தம் (exit code 0). Crash ஆனா CrashLoopBackOff காட்டியிருக்கும் (exit code non-zero)
+RESTARTS: 2 (32s ago) — kubelet ஏற்கனவே 2 தடவை restart பண்ணிட்டு, exactly அந்த moment-ல container running இல்ல (restart cycle-க்கு நடுவுல இருந்திருக்கும்)
+
+Status	Exit Code	Cause	K8s Behavior
+Completed ---	0 (success)	Command clean-ஆ முடிஞ்சிடுச்சு	Restart பண்ணிக்கிட்டே இருக்கும் (pod-ஓட restartPolicy default Always)
+CrashLoopBackOff ---	Non-zero (failure)	Command run ஆகி fail ஆகுது	Restart பண்ணும், ஆனா ஒவ்வொரு தடவையும் wait time அதிகரிச்சு (backoff)
+ImagePullBackOff --	N/A	Image கிடைக்கல/wrong name	Container start ஆகவே இல்ல, image pull-லயே fail
+-----------------------------------------------------------------------------------------------
+
+
