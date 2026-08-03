@@ -201,7 +201,7 @@ august 3  DEPLOYMENT
 #   kubectl get pods                                                  -----> check 3 copies run 
 #   kubectl get svc   my-app                                          -----> nodeport
 #   kubectl get nodes -o wide                                         ------> node ip       curl <node-ip> :<nodeport>
-#   kubectl describe deployment my-app                                ------> details
+#   kubectl describe deployment my-app                                ------> details and also images type
 #   kubectl delete deployment my-app                                  ----->  im delete one conatiner but its not delete still there why? because of relicas ,first delete svc then deployment
 #   kubectl delete svc my-app                                         -----> why delete svc ,because port num is there 
 #   kubectl create deployment my-deloyment --image=nginx --replicas=3 --dry-run=client -o yaml > deployment.yaml     ----> commands automtic yaml
@@ -223,7 +223,7 @@ CLEAN EVERYTHINK
 #  kubectl rollout undo deployment/my-app --to-revision=1     # specific revision-க்கு போகும்
 #  kubectl describe deployment my-app | grep Image
 #  kubectl get rs -w                                          # -w = watch, live-ஆ RS scale up/down
-#  kubectl describe rs
+#  kubectl describe rs                                         # you can see image type like nginx:latest somethig else
 
 
 1 Deployment-ஓட YAML-ல் இருக்குற image: nginx field-ஐ image: nginx:1.25-ஆ directly update பண்ணுது — YAML file manually edit பண்ணாம.
@@ -242,5 +242,99 @@ you'll see the revision counter keep incrementing forward, never going backward.
 chronological audit trail of every change, including rollbacks."
 
 ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+Deployment                                                                                                                                4         <none>
+      │
+      ▼
+ReplicaSet-1 (nginx:latest)
+      │
+      ▼
+Revision 1
+
+      │ Update
+      ▼
+
+ReplicaSet-2 (nginx:1.25)
+      │
+      ▼
+Revision 2
+
+      │ Update
+      ▼
+
+ReplicaSet-3 (nginx:1.26)
+      │
+      ▼
+Revision 3
+
+      │ Rollback
+      ▼
+
+ReplicaSet-4 (nginx:1.25)
+      │
+      ▼
+Revision 4 
+EXAMPLE:      kubectl rollout history deployment/myapp 
+deployment.apps/myapp 
+REVISION  CHANGE-CAUSE                                                                      memory  1.nginx:latest 2.nginx:1.25 3.nginx:1.26 4.rollout undo 
+1         <none>
+3         kubectl set image deployment/myapp nginx=nginx:1.26 --record=true
+4         <none>
+
+im practice deployment only nginx and httpd appache 2 only webserver 
+1. Nginx ✅
+kubectl run nginx --image=nginx
+2. Apache (httpd) ✅
+kubectl run webserver --image=httpd
+kubectl expose pod webserver --type=NodePort --port=80
+kubectl get svc     ----> appache is working but 
+kubectl describe pod webserver  -------> Status: Running
+                                          Image: httpd
+                                          Container ID: ..
+
+
+Main process:
+httpd -D FOREGROUND -----> extra tool like ,ps,curl,vim,nano,ping install                      
+
+
+
+
+3. BusyBox ❌ (Bad Gateway / No webpage)
+kubectl run busybox --image=busybox --command -- sleep 3600
+kubectl expose pod busybox --port=80
+kubectl exec -it busybox -- sh     #ps
+kubectl run redis --image=redis
+kubectl expose pod redis --type=NodePort --port=80
+
+Question: Will opening the NodePort in a browser show a webpage?
+Answer: ❌ No.
+Why?
+Because Redis is a database, not a web server. 
+It listens on port 6379 and communicates using the Redis protocol, not HTTP. A browser speaks HTTP, 
+so it cannot display Redis like a website.
+
+
+Only applications that are listening on a network port (such as a web server) 
+can be accessed through a browser or Service.
+
+For example:
+
+Application	Browser Access?	Why
+nginx	✅ Yes	HTTP server on port 80
+httpd	✅ Yes	HTTP server on port 80
+busybox	❌ No	No server process
+redis	❌ No (from a browser)	Database on port 6379
+mysql	❌ No (from a browser)	Database on port 3306
+
+Interviewer: "Why can you access Nginx but not BusyBox?"
+
+Good answer:
+
+"Nginx is a web server that listens for HTTP requests on port 80, so it can serve web pages through a
+Kubernetes Service. BusyBox is a lightweight Linux utility image. In my example, it was only running the
+sleep 3600 command and wasn't listening on any network port. That's why creating a Service doesn't 
+make it accessible through a browser."
+
+
 
 
