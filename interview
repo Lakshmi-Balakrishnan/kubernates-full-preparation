@@ -190,6 +190,57 @@ MongoDB → mongosh
 Redis → redis-cli
 
 In each case, you first enter the container with kubectl exec, then use the application's own client to communicate with that application.
+
+---------------------------------------------------------------------------------------------------------------------------------
+august 3  DEPLOYMENT
+--------------------
+#   kubectl create deployment my-app --image=nginx --replicas=5      ------>  create deployment with replicas
+#   kubectl scale deployment my-app --replicas=2                     ----->  if you want to change copies miximum is called scale up , mininum  scale down 
+#   kubectl expose deployment my-app --type=NodePort --port=80       ------> acess website 
+#   kubectl get deployment                                            -----> how many replicas you ceate
+#   kubectl get pods                                                  -----> check 3 copies run 
+#   kubectl get svc   my-app                                          -----> nodeport
+#   kubectl get nodes -o wide                                         ------> node ip       curl <node-ip> :<nodeport>
+#   kubectl describe deployment my-app                                ------> details
+#   kubectl delete deployment my-app                                  ----->  im delete one conatiner but its not delete still there why? because of relicas ,first delete svc then deployment
+#   kubectl delete svc my-app                                         -----> why delete svc ,because port num is there 
+#   kubectl create deployment my-deloyment --image=nginx --replicas=3 --dry-run=client -o yaml > deployment.yaml     ----> commands automtic yaml
+
+
+CLEAN EVERYTHINK
+------------------
+#  kubectl delete pod --all
+#  kubectl delete deployment --all
+#  kubectl delete svc --all
+
+ ROLL OUT, ROLL BACK,  ROLL UNDO,  ROLL STATUS, ROLL HISTORY
+-------------------------------------------------------------
+#  kubectl set image deployment/my-app nginx=nginx:1.25   
+#  kubectl rollout status deployment/my-app
+#  kubectl rollout history deployment/my-app
+#  kubectl set image deployment/my-app nginx=nginx:1.26 --record
+#  kubectl rollout undo deployment/my-app                     # revision 1-க்கு போகும்
+#  kubectl rollout undo deployment/my-app --to-revision=1     # specific revision-க்கு போகும்
+#  kubectl describe deployment my-app | grep Image
+#  kubectl get rs -w                                          # -w = watch, live-ஆ RS scale up/down
+#  kubectl describe rs
+
+
+1 Deployment-ஓட YAML-ல் இருக்குற image: nginx field-ஐ image: nginx:1.25-ஆ directly update பண்ணுது — YAML file manually edit பண்ணாம.
+kubectl set image deployment/my-deloyment  nginx=nginx:1.25
+                                            │       │
+                                            │       └── புது image:tag
+                                            └── container name (YAML-ல் spec.containers[].name)
+முக்கியமான point: nginx இங்க container-ஓட பேர் (image name இல்ல) — Deployment YAML create பண்ணும்போது container name automatic-ஆ image name-ஐ base பண்ணி set ஆகும் 
+(nginx image use பண்ணா, container name-உம் nginx-ஆ இருக்கும்).
+
+5 Interview Golden Answer
+------------------------
+"Kubernetes revision history is append-only, like a git log. When you run rollout undo, 
+Kubernetes doesn't restore the old revision number — it creates a brand-new revision that copies the target's pod template. So after a rollback, 
+you'll see the revision counter keep incrementing forward, never going backward. This design keeps a clean, 
+chronological audit trail of every change, including rollbacks."
+
 ----------------------------------------------------------------------------------------------------------------------------------------------------
 
 
