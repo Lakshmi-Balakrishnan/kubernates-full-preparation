@@ -334,7 +334,87 @@ Good answer:
 Kubernetes Service. BusyBox is a lightweight Linux utility image. In my example, it was only running the
 sleep 3600 command and wasn't listening on any network port. That's why creating a Service doesn't 
 make it accessible through a browser."
+--------------------------------------------------------------------------------------------------------
+AUGUST 4
+service topic
+#  kubectl create deployment webapp --image=nginx --replicas=3
+#  kubectl get pod -o wide webapp  
+#  kubectl get svc    
+#  kubectl delete pod name    ----> pod change      you dont acess anythink only you see the pod changes only
+EXPOSE
+------
+# kubectl create deployment web-app --image=nginx --replicas=3
+# kubectl expose deployment web-app --port=80 --target-port=80 --type=NodePort
+# kubectl get endpoints web-app
+Service:
+--------
+NAME      TYPE       CLUSTER-IP      PORT(S)
+web-app   NodePort   10.96.120.50    80:31234/TCP
 
+Before deleting a Pod
+--------------------
+Pods:
+Pod1  10.244.0.5
+Pod2  10.244.0.6
+Pod3  10.244.0.7
+
+Endpoints:
+10.244.0.5:80
+10.244.0.6:80
+10.244.0.7:80
+
+Service:
+ClusterIP = 10.96.120.50
+NodePort = 31234
+
+Delete one Pod
+--------------
+kubectl delete pod web-app-xxxxx
+
+Deployment creates a replacement.
+
+New Pods:
+
+Pod1  10.244.0.5
+Pod3  10.244.0.7
+Pod4  10.244.0.9   ← New IP
+
+Endpoints become:
+
+10.244.0.5:80
+10.244.0.7:80
+10.244.0.9:80
+
+What changed?
+-----------
+✅ Changed:
+Pod IP
+Endpoint list
+
+❌ Did NOT change:
+Service name (web-app)
+ClusterIP (10.96.120.50)
+NodePort (31234)
+So yes, your statement is correct:The ClusterIP stays the same. Only the endpoints change when Pods are replaced.
+
+Interview answer ⭐⭐⭐⭐⭐
+If an interviewer asks:
+"What happens to a Service when a Pod is deleted?"
+
+The Service keeps the same ClusterIP and NodePort.
+When the Deployment creates a replacement Pod with a new IP address,
+Kubernetes automatically updates the Service's endpoints.
+Clients continue to access the Service without knowing that the Pod IP changed."
+
+Pod IP = 10.244.0.6	                  New Pod IP = 10.244.0.9
+Endpoints include 10.244.0.6	        Endpoints include 10.244.0.9
+Service IP = 10.96.120.50	            Same 10.96.120.50
+NodePort = 31234	                    Same 31234
+Users can access the app	            Users can still access the app
+
+Only the Pod IP changes.
+The Service remains the same and automatically starts sending traffic to the new Pod.
+----------------------------------------------------------------------------------------------------------------------
 
 
 
