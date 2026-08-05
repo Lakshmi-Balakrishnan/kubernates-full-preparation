@@ -415,6 +415,40 @@ Users can access the app	            Users can still access the app
 Only the Pod IP changes.
 The Service remains the same and automatically starts sending traffic to the new Pod.
 ----------------------------------------------------------------------------------------------------------------------
+3 TYPE SERVICE 
+1.NodePort:
+#  kubectl expose deployment web-app --port=80 --target-port=80 --name=web-app-nodeport --type=NodePort
+#  kubectl get svc web-app-nodeport
+#  curl localhost:<nodeport-number>
+
+2.ClusterIp:
+#  kubectl expose deployment web-app --port=80 --target-port=80 --name=web-app-clusterip --type=ClusterIP
+#  kubectl get svc web-app-clusterip
+#  curl localhost:<any-port-shown>
+இது fail ஆகும் — ClusterIP-க்கு NodePort இல்ல, cluster உள்ளயிருந்து மட்டும் access முடியும்.
+Cluster உள்ள இருந்து Test பண்ணுங்க
+(ஒரு busybox pod create பண்ணி, அதுக்குள்ள இருந்து curl பண்ணுங்க):
+
+#  kubectl run test-pod --image=busybox --command -- sleep 3600
+#  kubectl exec -it test-pod -- wget -O- web-app-clusterip
+
+
+3.LodeBalancer:
+#  kubectl expose deployment web-app --port=80 --target-port=80 --name=web-app-lb --type=LoadBalancer
+#  kubectl get svc web-app-lb
+#  curl localhost:32510
+KillerCoda/local cluster-ல் EXTERNAL-IP column <pending>-ஆவே இருக்கும் — ஏன்னா LoadBalancer type cloud provider 
+(AWS/GCP/Azure)-ஓட integration தேவைப்படுது,
+automatic-ஆ ஒரு real public IP allocate பண்ணும். Local/practice clusters-ல் இது never resolve ஆகாது 
+(இது expected behavior, error இல்ல).
+
+#  kubectl get svc
+
+ClusterIP = base layer (internal access மட்டும்)
+NodePort = ClusterIP + node-level port expose பண்றது (external access)
+LoadBalancer = NodePort + cloud provider real public IP (production-grade external access)
+
+
 
 
 
