@@ -472,6 +472,6 @@ kubectl get pods --show-labels
 kubectl label pod <pod-name> env-
 
 kubectl get pods --show-labels
-
+---------------------------------------------------------------------------------------------
 
 
