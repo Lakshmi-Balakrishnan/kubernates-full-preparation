@@ -447,8 +447,31 @@ automatic-ஆ ஒரு real public IP allocate பண்ணும். Local/pra
 ClusterIP = base layer (internal access மட்டும்)
 NodePort = ClusterIP + node-level port expose பண்றது (external access)
 LoadBalancer = NodePort + cloud provider real public IP (production-grade external access)
+----------------------------------------------------------------------------------------------
+LABELS
+------
 
+kubectl create deployment nginx-app --image=nginx --replicas=3
 
+kubectl get pods --show-labels
+
+kubectl label pod <pod-name> env=dev
+
+kubectl get pods --show-labels
+
+kubectl get pods -l env=dev
+
+kubectl label pod <pod-name> tier=frontend
+
+kubectl get pods --show-labels
+
+kubectl label pod <pod-name> env=prod --overwrite
+
+kubectl get pods --show-labels
+
+kubectl label pod <pod-name> env-
+
+kubectl get pods --show-labels
 
 
 
