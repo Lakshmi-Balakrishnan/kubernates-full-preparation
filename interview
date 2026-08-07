@@ -450,35 +450,187 @@ LoadBalancer = NodePort + cloud provider real public IP (production-grade extern
 ----------------------------------------------------------------------------------------------
 AUGUST 6 
 LABELS
-------   why labels? you have 50 nginx 1, nginx2,nginx3,forntend1,frontend2,mysql1,mysql2,mysql3 
-you dont find frontend so you create ---> kubectl label pod podname dve=frontend 
-selector like a filter ---how willl k8s know which pod belong to the labels to the frontend?it use labels 
-ex:pod1  app=frontend
-pod2 app=frontend
-pod3 app=backend  matcing pods are selected   only create running pod
+------   
+What is a Label?
+A Label is a key=value pair attached to a Kubernetes object.
+labels:
+  app: nginx              HERE: app=nginx,env=dev,tier=frontend key=value is a labels
+  env: dev
+  tier: frontend
+
+Why do we need Labels?
+Imagine you have 100 Pods.
+nginx-1  nginx-2 nginx-3 mysql-1 mysql-2 redis-1 frontend-1 frontend-2........
+How will Kubernetes know which Pods belong to the frontend? it use labels
+ex: pod 1 app=frontend  pod 2 app=frontend pod 3 app=mysql , k8s easily identify frontend pods.
+What is a Selector?
+A Selector is used to find Pods based on their labels.
+Think of it as a filter.
+ex:  Selector:
+     app=frontend
+Kubernetes checks every Pod. Pod1app=frontend  ✅Pod2 app=frontend  ✅Pod3 app=backend   ❌
+only matching pod selected.
+
+How Deployment Uses Labels
+When you create:
+#  kubectl create deployment web-app --image=nginx --replicas=3
+Kubernetes automatically creates Pods with a label.default
+#  kubectl get pods --show-labels
+NAME                       LABELS
+web-app-7c8f8d9d4f-abc12   app=web-app
+web-app-7c8f8d9d4f-def34   app=web-app
+
+How Service Uses Labels
+Suppose your Service has:
+selector:
+  app: web-app
+Kubernetes asks:
+"Show me all Pods with app=web-app."
+It finds:
+Pod1 app=web-app ✅
+Pod2 app=web-app ✅
+
+ Service
+     selector:
+     app=web-app                          service yaml like this simple selector
+          │
+          ▼
+ --------------------------
+| Pod1 | app=web-app | ✅ |
+| Pod2 | app=web-app | ✅ |
+| Pod3 | app=web-app | ✅ |
+| MySQL| app=mysql   | ❌ |
+ --------------------------
+#  kubectl expose deployment web-app --port=80 --target-port=80
+The Service automatically gets:
+selector:
+  app: web-app
+#  kubectl create deployment web-app --image=nginx --replicas=3
+pod-template-hash=5d4dd47c87      This label is automatically created by Kubernetes.
+You should not create or modify it yourself.
+deployment ---relicaset----pod1-pod2-pod3  now yopu update image
+#  kubectl set image deployment/web-app nginx=nginx:1.26
+Old Pods                             after update
+app=web-app                          new pods app=web-app pod-template-hash=5d4dd7c55
+pod-template-hash=5d4dd47c87
+Which label should you use?
+Use app=web-app.
+Don't use:
+pod-template-hash
+That label is managed by Kubernetes.
+#  kubectl label pod web-app-5d4dd47c87-8pjs4 env=dev         choose 1 pod
+#  kubectl label pod <pod-name> env=dev
+#  kubectl get pods --show-labels           
+#  kubectl label pod nginx env=dev          1 pod , add a label pod oly running pod give labels
+#  kubectl label pod nginx tier=frontend    can i give multiple labels in pod
+#  kubectl get pods -l env=dev               filter sepcific show env
+#  kubectl label pod nginx env=prod --overwrite
+#  kubectl label pod <pod-name> env-         3 replicas you choose 1 pod kubectl get pods 
+
+Q1. What is a Label?
+A label is a key-value pair attached to a Kubernetes object. 
+It is used to organize, identify, and group resources such as Pods.
+
+Q2. What is a Selector?
+A selector is a filter used by Kubernetes resources like Services and Deployments to select 
+Pods based on matching labels.
+
+Q3. Why are Labels important?
+Labels allow Kubernetes to identify related Pods. Services use labels to route traffic, 
+and Deployments use labels to manage Pods.
+
+Q4. Can one Pod have multiple Labels?
+Yes. A Pod can have multiple labels such as app=nginx, env=dev, and tier=frontend.
+Different Kubernetes resources can use different labels depending on their purpose."
+QUESTION $ ANSWER
+1. What is matchLabels?
+"matchLabels is part of a Deployment's selector. 
+It tells the Deployment which Pods it owns by matching Pod labels. 
+The selector must match the labels defined in the Pod template."
+
+selector:
+  matchLabels:
+    app: web-app
+template:
+  metadata:
+    labels:
+      app: web-app             yaml must match both selector and template in deployment
+Deployment                        
+     │                         
+     │ selector                matchlabels--- Find Pods where app = web-app.
+     │ matchLabels:
+     │ app=web-app
+     ▼
+-------------------------
+Pod1 app=web-app     ✅
+Pod2 app=web-app     ✅
+Pod3 app=mysql       ❌
+
+2. Why must selector.matchLabels and template.metadata.labels match?
+Answer:
+"The Deployment uses selector.matchLabels to identify the Pods it manages.
+The Pod template assigns labels to newly created Pods. 
+If these values don't match, the Deployment cannot correctly identify and manage its own Pods."
+
+Deployment	                            Service
+Uses selector.matchLabels             	Uses selector
+Manages Pods                           	Routes traffic
+Creates Pods                    	      Doesn't create Pods
+Performs scaling and rolling updates	  Sends requests to matching Pods
+#  kubectl create deployment demo --image=nginx --replicas=3 --dry-run=client -o yaml > deployment.yaml
+#  vi deployment.yaml
+Look for these two sections:
+selector:
+  matchLabels:
+and
+template:
+  metadata:
+    labels:
+Check whether both have the same value, such as:
+app: demo
+
+3.matchExpressions  -More powerful.
+You can say things like:
+app is nginx or apache
+env is not prod
+tier label must exist
+debug label must not exist
+Syntax
+Operator 1: In ⭐⭐⭐⭐⭐
+selector:                                  
+  matchExpressions:
+  - key: app                 ex pod:  pod1 app=nginx✅ pod2 app=httpd ✅ pod3 app=mysql❌
+    operator: In                 
+    values:
+    - nginx
+    - httpd
+
+Operator 2: NotIn    
+Selector:
+matchExpressions:             result:nginx ✅httpd✅ mysql ❌
+- key: app                    select everthing except mysql
+  operator: NotIn
+  values:
+  - mysql
+
+Operator 3: Exists
+Selector:                            
+matchExpressions:                 result:app=nginx ✅ app=httpd ✅ tier=frontend ❌
+- key: app                        Select Pods that have an app label, regardless of its value.
+  operator: Exists
+
+Operator 4: DoesNotExist
+Selector:
+matchExpressions:
+- key: debug                      Select Pods that do not have a debug label.
+  operator: DoesNotExist
+
+What is the difference between matchLabels and matchExpressions?
+"matchLabels performs an exact key-value match, such as app=nginx.
+matchExpressions supports more advanced selection using operators like In, NotIn, Exists, and DoesNotExist,
+allowing more flexible matching rules."
 
 
-kubectl create deployment nginx-app --image=nginx --replicas=3
-
-kubectl get pods --show-labels
-
-kubectl label pod <pod-name> env=dev
-
-kubectl get pods --show-labels
-
-kubectl get pods -l env=dev
-
-kubectl label pod <pod-name> tier=frontend
-
-kubectl get pods --show-labels
-
-kubectl label pod <pod-name> env=prod --overwrite
-
-kubectl get pods --show-labels
-
-kubectl label pod <pod-name> env-
-
-kubectl get pods --show-labels
 ---------------------------------------------------------------------------------------------
 AUGUST 7
 CONGIG MAP & SECRET
@@ -593,12 +745,41 @@ Old pods terminate ஆகும் (rolling update மாதிரியே)
 --------------------------------------------------------------------------------------------------------
 
 NAMESPACE
-
-
-
-
-
-
-
-
+Step 1: Existing Namespaces பாருங்க
+#  kubectl get namespaces                     default irukum
+Step 2: புது Namespace Create
+#  kubectl create namespace dev
+#  kubectl create namespace prod
+#  kubectl get namespaces
+Step 3: Namespace-ல் Deployment Create ப
+#  kubectl create deployment web-app --image=nginx --replicas=2 -n dev
+#  kubectl get pods -n dev       -n dev show 
+#  kubectl get pods             error empty
+Step 4: Isolation Concept Verify 
+#  kubectl create deployment web-app --image=nginx --replicas=1 -n prod
+#  kubectl get deployments --all-namespaces
+Step 5: Resource Limits Practice
+vi limited-pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: limited-pod
+  namespace: dev
+spec:
+  containers:
+    - name: nginx
+      image: nginx
+      resources:
+        requests:
+          cpu: "100m"
+          memory: "128Mi"
+        limits:
+          cpu: "200m"
+          memory: "256Mi"
+#  kubectl apply -f limited-pod.yaml
+#  kubectl describe pod limited-pod -n dev | grep -A 6 -i Limits   
+#  kubectl describe pod limited-pod -n dev
+#  kubectl get deployments --all-namespaces or  kubectl get deployments -A
+#  kubectl delete namespace dev
+------------------------------------------------------------------------------------------------
 
