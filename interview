@@ -1,23 +1,32 @@
 POD  -the three most common ways to create a Pod
 1. Create a Pod directly (imperative command)
-kubectl run nginx --image=nginx:latest
-kubectl run webserver --image=httpd:latest     
-verify :   kubectl get pods
-kubectl get pod -o wide
-kubectl describe pod nginx
-kubectl exec -it nginx -- sh      # apt update ,apt install curl -y  ,curl localhost   For the Nginx image, use sh because many minimal images don't include bash.
+#  kubectl run nginx --image=nginx:latest
+#  kubectl run webserver --image=httpd:latest     
+#  verify :   kubectl get pods
+#  kubectl get pod -o wide
+#  kubectl describe pod nginx
+#  kubectl exec -it nginx -- sh      # apt update ,apt install curl -y  ,curl localhost   For the Nginx image, use sh because many minimal images don't include bash.
+
+POD WITH LABELS SET
+#  kubectl run pod1 --image=nginx --labels="app=web,env=prod"
+#  kubectl run pod2 --image=nginx --labels="app=web,env=dev"
+#  kubectl run pod3 --image=nginx --labels="app=api,env=prod"
+#  kubectl get pods -l app=web
+#  kubectl get pods -l app=web,env=prod
+#  kubectl get pods -l 'env in (prod,staging)'
+#  kubectl get pods -l 'app notin (api)'
 ----------------------------------------------------------------------------------------------------------------------------------
 
 2. Generate YAML using --dry-run 
-kubectl run mypod --image=nginx:latest --dry-run=client -o yaml > mypod.yaml
+#  kubectl run mypod --image=nginx:latest --dry-run=client -o yaml > mypod.yaml
 This does not create the Pod. It only generates the YAML file.
 
-kubectl apply -f mypod.yaml
+#  kubectl apply -f mypod.yaml
 
-verify :  kubectl get pods
-kubectl describe pod mypod
-kubectl logs mypod
-kubectl exec -it mypod -- sh 
+#  verify :  kubectl get pods
+#  kubectl describe pod mypod
+#  kubectl logs mypod
+#  kubectl exec -it mypod -- sh 
 ---------------------------------------------------------------------------------------------------------------------------------------
 3. Write the YAML manually
 apiVersion: v1
@@ -29,12 +38,12 @@ spec:
     - name: nginx
       image: nginx:latest
       
- kubectl apply -f nginx.yaml
+# kubectl apply -f nginx.yaml
  
-verify:  kubectl get pods
-kubectl describe pod nginx
-kubectl logs nginx
-kubectl exec -it nginx -- sh
+#  verify:  kubectl get pods
+#  kubectl describe pod nginx
+#  kubectl logs nginx
+#  kubectl exec -it nginx -- sh
  --------------------------------------------------------------------------------------------------------------------------------
  
  Commands you should remember
@@ -67,42 +76,42 @@ kubectl delete pod nginx
 -------------------------------------------------------------------------------------------------------------------------------
 Web Servers
 
-kubectl run nginx --image=nginx
-kubectl run apache --image=httpd
+#  kubectl run nginx --image=nginx
+#  kubectl run apache --image=httpd
 Databases
 
-kubectl run mysql-db --image=mysql --env="MYSQL_ROOT_PASSWORD=pass123"
-kubectl run redis-cache --image=redis
-kubectl run postgres-db --image=postgres --env="POSTGRES_PASSWORD=pass123"
+#  kubectl run mysql-db --image=mysql --env="MYSQL_ROOT_PASSWORD=pass123"
+#  kubectl run redis-cache --image=redis
+#  kubectl run postgres-db --image=postgres --env="POSTGRES_PASSWORD=pass123"
 Lightweight Testing Images (very useful for K8s practice)
 
-kubectl run busybox --image=busybox --command -- sleep 3600
-kubectl run alpine --image=alpine --command -- sleep 3600
+#  kubectl run busybox --image=busybox --command -- sleep 3600
+#  kubectl run alpine --image=alpine --command -- sleep 3600
 
 இது இரண்டும் ரொம்ப சின்ன images (5-10MB), quick debugging/testing-க்கு perfect.
 
 Application Runtimes
 
-kubectl run python-app --image=python:3.12
-kubectl run node-app --image=node:20
+#  kubectl run python-app --image=python:3.12
+#  kubectl run node-app --image=node:20
 ----------------------------------------------------------------------------------------------------------------------------
 
 Step 1: busybox pod create பண்ணுங்க
 
-kubectl run busybox --image=busybox --command -- sleep 3600
+#  kubectl run busybox --image=busybox --command -- sleep 3600
 
 ஏன் --command -- sleep 3600 extra add பண்ணோம்?
 busybox image ஒரு web server இல்ல — அதுக்கு default-ஆ run ஆக என்ன command குடுக்கணும்-ன்னு தெரியாது. Command குடுக்காம விட்டா, container start ஆகி உடனே stop ஆயிடும் (nothing to run, so it exits). அதனால sleep 3600 சொல்லி — "1 hour (3600 seconds) sleep பண்ணு, அதனால pod alive-ஆ இரு"-ன்னு சொல்றோம்.
 
 Step 2: Pod running-ஆ இருக்கான்னு check பண்ணுங்க
 
-kubectl get pods
+#  kubectl get pods
 
 STATUS column Running காட்டணும்.
 
 Step 3: உள்ள போங்க (exec)
 
-kubectl exec -it busybox -- sh            
+#  kubectl exec -it busybox -- sh            
 
 இப்போ உங்க terminal prompt மாறி, busybox container உள்ள இருக்கீங்க (prompt / # மாதிரி காட்டும்).
 
@@ -205,8 +214,28 @@ august 3  DEPLOYMENT
 #   kubectl delete deployment my-app                                  ----->  im delete one conatiner but its not delete still there why? because of relicas ,first delete svc then deployment
 #   kubectl delete svc my-app                                         -----> why delete svc ,because port num is there 
 #   kubectl create deployment my-deloyment --image=nginx --replicas=3 --dry-run=client -o yaml > deployment.yaml     ----> commands automtic yaml
+DEPLOYMENT YAML
 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
 
+spec:
+  replicas: 3                      UNDERSTAND --metadata is you give deployment name
+  selector:                              show labels -you saw labels is same metadata name so 
+    matchLabels:
+      app: web-app
+
+  template:
+    metadata:
+      labels:
+        app: web-app
+
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:latest
 CLEAN EVERYTHINK
 ------------------
 #  kubectl delete pod --all
@@ -416,6 +445,22 @@ Only the Pod IP changes.
 The Service remains the same and automatically starts sending traffic to the new Pod.
 ----------------------------------------------------------------------------------------------------------------------
 3 TYPE SERVICE 
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-service
+
+spec:
+  selector:
+    app: web-app
+
+  ports:
+    - port: 80
+      targetPort: 80
+
+  type: ClusterIP
+
 1.NodePort:
 #  kubectl expose deployment web-app --port=80 --target-port=80 --name=web-app-nodeport --type=NodePort
 #  kubectl get svc web-app-nodeport
