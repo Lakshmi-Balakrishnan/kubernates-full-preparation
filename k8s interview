@@ -1,1 +1,70 @@
-heelo
+KUBERNETES ALL QUESTION AND ANSWER
+
+1. What is Kubernetes?
+Kubernetes is an open-source container orchestration platform used to deploy,
+manage, scale, and maintain containerized applications.
+Docker runs containers. Kubernetes manages containers across one or more machines.
+
+2. What is the difference between Docker and Kubernetes?
+ Docker is a containerization platform used to build, package, and run applications inside containers.
+*Kubernetes is an open-source container orchestration platform used to manage containers at scale.
+ Docker mainly focuses on creating and running containers,
+*whereas Kubernetes manages multiple containers across multiple servers and provides features like scaling, self-healing, service discovery, rolling updates, 
+ and load balancing.
+
+3. Why do we use Kubernetes?
+We use Kubernetes to automate container deployment, scaling, networking,
+service discovery, and self-healing of applications.
+For example, if a Pod crashes, Kubernetes can automatically create a replacement Pod.
+
+4.What is a container?
+A container is a lightweight, isolated environment used to package and 
+run an application along with its dependencies.
+Ex:
+Application
+    +
+Dependencies
+    ↓
+ Docker Container
+
+5.What is a Pod?
+*A Pod is the smallest deployable unit in K8s. 
+*It contains one or more containers that share the same network and storage resources.
+*Most commonly, we run one application container per Pod.
+*pod crashes k8s automatically create a new one.
+*pod are temporary -they can die anytime!ephemeral
+
+ A Pod is the smallest deployable unit in Kubernetes.
+
+ it can contains one or more containers that share the same network namespace and can share storage volumes.
+
+ Most commonly, we run one application container per Pod.
+
+ Pods are ephemeral, which means they are temporary and can be created, terminated, or replaced at any time.
+
+ Each Pod gets its own IP address,
+ and pods managed by controllers such as depolyment can be automatically replaced if thay fail
+
+ 
+
+6.Why does Kubernetes use Pods instead of directly managing containers?
+Kubernetes uses Pods as an abstraction layer around containers. 
+A Pod provides networking, storage, and a shared execution environment for one or more containers.
+think: k8s--pod--container
+
+7.Can a Pod have multiple containers?
+Yes. A Pod can contain multiple containers, 
+and those containers share the same network namespace and can share storage volumes.
+
+Pod
+├── Application container
+└── Sidecar container
+For fresher interviews, remember:
+One Pod can contain one or more containers.
+
+8.
+
+
+
+
+
