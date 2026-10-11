@@ -62,7 +62,521 @@ Pod
 For fresher interviews, remember:
 One Pod can contain one or more containers.
 
-8.
+1. What is kube-apiserver?
+The kube-apiserver is the central component of the Kubernetes control plane. It exposes the Kubernetes API and handles requests from users, 
+kubectl, and other Kubernetes components.
+2.What is etcd?
+etcd is a distributed key-value store used by Kubernetes to store the cluster's configuration data and 
+current state.
+
+3. What does kubelet do?-----kubelet = Node-level Kubernetes agent
+kubelet is an agent running on every worker node.
+It communicates with the API Server and ensures that the containers described in the Pod specification are running and healthy.
+
+4. What is kube-proxy?
+kube-proxy is a network component running on nodes 
+that helps implement Kubernetes Service networking and directs network traffic to the appropriate Pods.
+
+5. What is a Namespace?
+A Namespace provides logical isolation within a Kubernetes cluster.
+It allows us to organize and separate resources.
+kubectl get namespaces
+kubectl create namespace dev
+kubectl get pods -n dev
+
+6.How do you get detailed information about a Pod?
+kubectl describe pod nginx-pod
+I use kubectl describe pod to check the Pod's configuration,
+conditions, events, container status, and possible errors.
+
+7.How do you check Pod logs?
+kubectl logs nginx-pod
+If there are multiple containers:
+kubectl logs nginx-pod -c container-name
+
+8. How do you enter a running container?
+kubectl exec -it nginx-pod -- /bin/bash
+If bash isn't available:
+kubectl exec -it nginx-pod -- /bin/sh
+
+🔥 Scenario Questions
+These are very important.
+1.A Pod is in Pending state. What will you do?
+First, I will check the Pod status and then use kubectl describe pod to look at the events. 
+I will check whether there are resource constraints, node availability, taints, tolerations, affinity rules, or PVC-related issues.
+kubectl get pods
+kubectl describe pod <pod-name>
+kubectl get nodes
+kubectl get events
+
+2.A Pod is in CrashLoopBackOff. What will you do?
+I will first check the container logs and 
+then describe the Pod to check events and configuration. I will investigate whether the application is crashing, the command is incorrect, a configuration is missing, or a health probe is failing
+kubectl logs <pod-name>
+kubectl describe pod <pod-name>
+kubectl get events
+CrashLoopBackOff
+      ↓
+logs
+      ↓
+describe
+      ↓
+events
+      ↓
+find root cause
+      ↓
+fix
+
+1. What is a Deployment?
+A Deployment is a Kubernetes resource used to manage and maintain a desired number of Pods. 
+It provides features such as scaling, rolling updates, and rollback.
+
+2. Why do we use Deployment?
+We use Deployments to manage application Pods declaratively. They help us maintain the desired number of replicas, perform rolling updates,
+and roll back to a previous version if an update fails.
+The main benefits:
+- Maintain replicas
+- Self-healing
+- Scaling
+- Rolling updates
+- Rollback
+- Declarative configuration
+
+3.What is a ReplicaSet?
+A ReplicaSet is a Kubernetes resource that ensures a specified number of Pod replicas are running at any given time.
+
+4.How do you scale a Deployment?
+kubectl scale deployment nginx-deployment --replicas=5
+I can scale a Deployment using kubectl scale or by changing the replicas value in the Deployment YAML.
+deployment
+
+🔥 Scenario-Based Interview Questions
+Q1. You deployed an application with 3 replicas. One Pod suddenly crashes. What happens?
+The ReplicaSet detects that the desired number of replicas is not available and 
+creates a new Pod to maintain the desired replica count.
+
+Q2. What happens when you update the image in a Deployment?
+Kubernetes creates a new ReplicaSet with the updated Pod template and 
+gradually replaces the old Pods with new Pods through a rolling update.
+
+Q3. Your new application version is broken. What will you do?
+First, I would check the rollout status and application logs. If the new version is confirmed to be faulty, 
+I would roll back the Deployment to the previous working revision.
+kubectl rollout status deployment/<name>
+kubectl rollout history deployment/<name>
+kubectl rollout undo deployment/<name>
+
+Q4. What is the difference between scaling and rolling update?
+Scaling:
+Changing the number of Pod replicas.
+kubectl scale deployment nginx-deployment --replicas=5
+Rolling update:
+Changing the application version gradually.
+Example:
+nginx:1.25 → nginx:1.26
+
+1️⃣ What is a Service?
+A Service is a Kubernetes resource that provides a stable network endpoint to access a group of Pods. 
+It also provides load balancing across the Pods
+2️⃣ Why do we need a Service?
+We use a Service because Pod IPs are temporary. 
+A Service provides a stable IP and DNS name to access Pods.
+3️⃣ How does Service know which Pods to send traffic to?
+How does a Service identify Pods?
+A Service uses selectors to identify Pods based on their labels.
+
+scenario-based questions you
+1.Why can't we just use Pod IPs?
+Pod IPs are temporary because Pods are ephemeral. 
+If a Pod is deleted or recreated, the new Pod can get a different IP address. So instead of directly using Pod IPs, we use a Service, which provides a stable IP and DNS name.
+2. Endpoints are empty. Give two reasons.
+Suppose:
+kubectl get endpoints devops-app-service
+NAME                  ENDPOINTS
+devops-app-service    <none>
+Selector doesn't match Pod labels
+Pod:
+labels:
+  app: devops-app
+selector:
+  app: wrong-app
+Pods are not Ready
+kubectl get pods
+kubectl describe pod <pod-name>
+*First, I would check whether the Service selector matches the Pod labels. 
+Second, I would check whether the Pods are in the Ready state.
+
+3.What's the difference between port and targetPort?
+ports:
+  - port: 80
+    targetPort: 8080
+Client
+  │
+  ▼
+Service :80
+  │
+  ▼
+Pod :8080
+ the port exposed by the Service, while
+targetPort is the port on the Pod where the application is running.
+
+4. Why use Ingress instead of 10 LoadBalancer Services?
+10 LoadBalancers
+10 external IPs
+Higher cost
+More infrastructure
+             Ingress
+                │
+      ┌─────────┼─────────┐
+      ▼         ▼         ▼
+   Service1  Service2  Service3
+      │         │         │
+     Pods      Pods      Pods
+
+Ingress allows us to expose multiple applications through a single entry point and 
+route traffic to different Services based on host or path.
+This can reduce the need for multiple external LoadBalancers.
+
+5. Users get a 503. Where do you look first?
+
+kubectl get ingress
+kubectl describe ingress <ingress-name>
+kubectl get svc
+kubectl describe svc <service-name>
+kubectl get endpoints <service-name>
+ANS
+For a 503, I would trace the request path from Ingress to Service to Endpoints to Pods. 
+First, I would check whether the Ingress points to the correct Service, then check whether the Service has healthy endpoints,
+and finally check Pod readiness and application logs.
+
+503
+ ↓
+Ingress
+ ↓
+Service
+ ↓
+Endpoints
+ ↓
+Pod Ready?
+ ↓
+Application logs
+
+🔥 Scenario
+"The Pod is Pending. How would you troubleshoot this issue?"
+First, I would run kubectl describe pod <pod-name> and 
+check the Events section to find why the Pod is stuck in Pending
+Then, depending on the event, I would investigate things like:
+- Insufficient CPU/memory
+- Node problems
+- Taints/tolerations
+- PersistentVolume/PVC issues
+- Scheduling constraints
+Then, depending on the event, I would investigate things like:
+- Insufficient CPU/memory
+- Node problems
+- Taints/tolerations
+- PersistentVolume/PVC issues
+- Scheduling constraints
+
+2.“What does CrashLoopBackOff mean, and how would you troubleshoot it?”
+If a Pod is in `CrashLoopBackOff`, it means the container is repeatedly starting and crashing.
+
+First, I would run:
+`kubectl describe pod <pod-name>`
+I would check the **Events, Last State, and Exit Code** to understand why the container is crashing.
+Then I would check the application logs:
+`kubectl logs <pod-name>`
+If the container has already restarted, I would check the logs from the previous crashed container:
+`kubectl logs <pod-name> --previous`
+Finally, I would check Kubernetes events:
+`kubectl get events`
+This helps me identify the root cause, such as an application error, wrong configuration, missing environment variable, or incorrect command.
+
+3.
+ImagePullBackOff means Kubernetes is unable to pull the container image and is retrying. I would first check the image name and tag in the Pod specification. Then I would use kubectl describe pod <pod-name> and
+check the Events section for the exact reason, such as an incorrect image, missing tag, or authentication failure.
+ImagePullBackOff
+       ↓
+kubectl describe pod <pod-name>
+       ↓
+Check Events
+       ↓
+Check image name + tag
+       ↓
+Check registry authentication
+
+4.The Pod is Running, but users cannot access the application. How would you troubleshoot it?”
+First, I would check the Pod status and IP using kubectl get pods -o wide. Then I would use kubectl describe pod and check the Events.
+I would check the application logs using kubectl logs. Finally, 
+I would test the application from inside the Pod using kubectl exec and curl localhost. 
+If the application works inside the Pod, 
+I would then check the Service, endpoints, and Ingress.
+Pod Running
+    ↓
+Is application working?
+    ↓
+kubectl logs
+    ↓
+curl localhost:<port>
+    ↓
+YES ──→ Check Service
+          ↓
+       Endpoints
+          ↓
+       Ingress
+kubectl get pods -o wide
+kubectl describe pod <pod-name>
+kubectl logs <pod-name>
+kubectl exec -it <pod-name> -- curl localhost:<port>
+
+5.Why are the Service endpoints empty? 
+Give me at least two possible reasons and tell me how you would troubleshoot it.
+Endpoints = <none>
+        ↓
+1. Selector mismatch?
+2. Pod Ready?
+        ↓
+Endpoints exist
+        ↓
+Traffic still failing?
+        ↓
+3. port / targetPort?
+
+6. Application listening on correct interface?
+
+First, I would check kubectl get endpoints <service-name>.
+If the endpoints are empty, 
+I would check whether the Service selector matches the Pod labels and whether the Pods are Ready.
+Then I would check the Service configuration and application port. 
+If the application is listening only on 127.0.0.1, it may not be reachable through the Pod network; 
+it should normally listen on 0.0.0.0.
+
+Scenario 6 — port vs targetPort
+ports:
+  - port: 80
+    targetPort: 8080
+Your Spring Boot application is actually listening on port 9090.
+Users cannot access the application. What is wrong with the Service configuration, 
+and how would you fix it?"
+Service :80
+     ↓
+Pod :9090
+     ↓
+Spring Boot application
+
+I would check the Service configuration using kubectl describe svc. 
+The Service has targetPort: 8080, but the application is listening on port 9090.
+I would change the targetPort to 9090.
+🔥 Scenario 8 — Ingress
+Service → Pods → ✅ works
+But when users access:
+http://devops-app.local
+404 Not Found
+The Service works, but the Ingress returns 404. How would you troubleshoot this?"
+Since the Service is working, I would check the Ingress configuration. First, I would verify that the requested host matches the Ingress host and that the URL path matches the configured path. 
+Then I would check whether the Ingress points to the correct Service and port.
+rules:
+- host: devops-app.local
+  http:
+    paths:
+    - path: /
+      backend:
+        service:
+          name: devops-app-service
+          port:
+            number: 80
+Request
+http://devops-app.local/
+        ↓
+host matches ✅
+path matches  ✅
+        ↓
+Service
+
+kubectl describe ingress <ingress-name>
+check----host,path,backend sev,backendport ,events
+
+🔥 Scenario 9 — Ingress 503
+our Ingress is configured correctly, and the user reaches the correct host/path, but gets:
+503 Service Unavailable
+First, I would check whether the Service has endpoints. 
+If the endpoints are empty, I would check the Service selector and Pod readiness.
+If endpoints exist, I would check whether the backend Pods are healthy and whether the Service is using the correct port and targetPort.
+I would also check the Ingress configuration and controller logs if needed.
+Ingress 503
+    ↓
+Service
+    ↓
+Endpoints?
+ ┌──┴───────┐
+NO         YES
+ ↓           ↓
+selector/   Check Pods
+readiness   + ports
+
+kubectl get endpoints <service>
+kubectl get pods
+kubectl describe svc <service>
+kubectl describe ingress <ingress>
+kubectl logs <ingress-controller-pod>
+CONFIGMAP SENARIO
+1.Why is the Pod still using the old value, and how would you fix it?”
+If the ConfigMap value is injected as an environment variable, updating the ConfigMap does not automatically change the value inside an already-running container. 
+You can restart the Deployment:
+kubectl rollout restart deployment/<deployment-name>
+
+2.CreateContainerConfigError
+kubectl describe pod <pod-name>
+kubectl get secret <secret-name>
+kubectl describe secret <secret-name>
+kubectl describe deployment <deployment-name>
+
+Secret name is wrong
+Secret key is wrong
+secretKeyRef is incorrect
+Secret doesn't exist
+Namespace mismatch
+
+First, I would run kubectl describe pod <pod-name> and check the Events section. 
+Then I would verify that the Secret exists and check whether the Secret name and key referenced in the Deployment are correct. 
+I would also check the Deployment YAML for any configuration mistakes.
+🔥 Scenario 12 — HPA
+minReplicas: 2
+maxReplicas: 6
+target CPU: 70%
+The CPU is high, but HPA is not scaling up. 
+How would you troubleshoot this?”
+
+First, I would run kubectl describe hpa <hpa-name> and check the Events and current CPU metrics. Then I would verify that Metrics Server is running and that CPU metrics are available. 
+I would also check whether the HPA target is configured correctly and whether the Deployment has the required CPU requests.
+
+kubectl describe hpa <hpa-name>
+kubectl get hpa
+kubectl top pods
+kubectl get pods -n kube-system
+High CPU
+   ↓
+HPA not scaling
+   ↓
+kubectl describe hpa
+   ↓
+Are metrics available?
+   ↓
+Metrics Server
+   ↓
+Is HPA target correct?
+   ↓
+Does Pod have CPU requests?
+
+🔥 Scenario 13 — HPA <unknown>
+kubectl get hpa
+NAME          TARGETS       MINPODS   MAXPODS
+frontend-hpa  <unknown>/70%  2         6
+Why is HPA showing <unknown> for CPU utilization? How would you troubleshoot it?”
+“If HPA shows <unknown>, I would check whether CPU metrics are available. I would check the Metrics Server and run kubectl top pods.
+I would also use kubectl describe hpa to check the Events and find the exact reason.”
+
+kubectl top pods
+kubectl describe hpa <hpa-name>
+kubectl get pods -n kube-system
+HPA → <unknown>
+      ↓
+Are metrics available?
+      ↓
+kubectl top pods
+      ↓
+Metrics Server
+
+CONFIGMAP AND SECRET
+1.What is a ConfigMap?
+Interview answer:
+A ConfigMap is a Kubernetes resource used to store non-sensitive configuration data, such as application settings,
+environment names, and configuration values.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: devops-app-config
+data:
+  APP_NAME: "devops application"
+  APP_ENVIRONMENT: "development"
+
+2. Why do we use ConfigMap?
+We use ConfigMaps to separate application configuration from 
+the application code or container image.
+Suppose your application has:
+APP_ENVIRONMENT=development
+Instead of hardcoding this inside the Docker image:
+Docker image
+   ↓
+Application
+   ↓
+development
+
+we can keep configuration separately:
+ConfigMap
+   ↓
+Pod
+   ↓
+Application
+
+3.ConfigMap is used for non-sensitive configuration,
+while Secret is used for sensitive information 
+such as passwords, tokens, and credentials.
+
+4. What is a Secret?
+A Secret is a Kubernetes resource used to store sensitive information such as passwords, tokens, and credentials.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: devops-app-secret
+type: Opaque
+data:
+  DB_USERNAME: ZGV2b3BzdXNlcg==
+  DB_PASSWORD: cGFzc3dvcmQ=
+The values under data are Base64 encoded.
+
+6. Why use Secret instead of ConfigMap?
+Because passwords and credentials should not be stored as ordinary configuration.
+Example:
+❌ ConfigMap
+DB_PASSWORD=mypassword
+✅ Secret
+DB_PASSWORD=******
+
+
+🔥 Your turn — Scenario 1
+ConfigMap says APP_ENVIRONMENT=production, but the running Pod still shows development.
+Why, and how do you fix it?
+“The running Pod is still using the old ConfigMap value because the environment variable was loaded when the container started. 
+I would restart the Deployment using kubectl rollout restart deployment/<deployment-name> so the new Pods pick up the updated configuration.”
+
+🔥 — Scenario 2
+Your Deployment references this Secret:
+secretKeyRef:
+  name: devops-app-secret
+  key: DB_PASSWORD
+
+CreateContainerConfigError  How would you troubleshoot this?”
+First, I would run kubectl describe pod <pod-name> and check the Events section to understand why the container failed to start. 
+Then I would verify that the Secret name and key in secretKeyRef are correct and that the Secret exists in the same namespace.”
+kubectl describe pod <pod-name>
+kubectl get secret devops-app-secret
+kubectl describe secret devops-app-secret
+CreateContainerConfigError → describe pod → check Events → verify Secret exists → verify Secret name/key/namespace → fix YAML → recreate/restart Pod.
+
+
+Scenario— ConfigMap vs Secret
+Your application needs:
+- APP_ENVIRONMENT=production
+- DB_USERNAME=admin
+- DB_PASSWORD=secret123
+Question:
+Which values would you put in a ConfigMap and which in a Secret? And why?
+“I would use a ConfigMap for non-sensitive configuration such as APP_ENVIRONMENT=production. I would use a Secret for sensitive information such as DB_USERNAME and DB_PASSWORD. ConfigMap stores non-sensitive configuration, while Secret is designed for sensitive data. Secret values in Kubernetes can be stored as Base64-encoded data, but Base64 itself is not encryption.”
+
+
+
+
 
 
 
