@@ -575,10 +575,67 @@ Which values would you put in a ConfigMap and which in a Secret? And why?
 “I would use a ConfigMap for non-sensitive configuration such as APP_ENVIRONMENT=production. I would use a Secret for sensitive information such as DB_USERNAME and DB_PASSWORD. ConfigMap stores non-sensitive configuration, while Secret is designed for sensitive data. Secret values in Kubernetes can be stored as Base64-encoded data, but Base64 itself is not encryption.”
 
 
+1.🔹 Scenario: Pod is Running, but users can’t access the application
+Key idea: Running only means the container process started. It doesn’t mean the app is healthy,
+listening on the right port, or reachable. So troubleshoot layer by layer, from inside out:
+App inside Pod → Pod Ready? → Service → Endpoints → Ingress/LB → DNS → Network/Firewall
 
+Troubleshooting steps
+Step 1: Check Pod status and READY column
+kubectl get pods -o wide
+If it shows 0/1 Running, the readiness probe is failing, and the Pod is removed from Service endpoints. Check with:
+kubectl describe pod <pod-name>
+Step 2: Check application logs
+kubectl logs <pod-name>
+Step 3: Test the app inside the Pod
+kubectl exec -it <pod-name> -- curl localhost:<port>
+4.kubectl get svc
+kubectl describe svc <service-name>
+Step 5: Check Endpoints (very important)
+kubectl get endpoints <service-name>
+kubectl get pods --show-labels
+Step 6: Test the Service from inside the cluster
+kubectl run test --rm -it --image=busybox -- wget -qO- http://<service-name>:<port>
+Ingress checks:
+kubectl get ingress
+kubectl describe ingress <name>
+kubectl get pods -n ingress-nginx
 
+Step 8: Check NetworkPolicy and DNS
+kubectl get networkpolicy
+kubectl exec -it <pod> -- nslookup <service-name>
+kubectl get pods -n kube-system   # check CoreDNS
+.
 
+🔹 Quick flow to remember
+Pod Running but not accessible
+        ↓
+READY 0/1?        → fix readiness probe
+        ↓
+curl inside Pod fails? → app/port/0.0.0.0 issue
+        ↓
+Endpoints empty?  → selector/label mismatch
+        ↓
+Service works internally but not externally?
+        ↓
+Ingress / NodePort / LoadBalancer / Security Group / DNS
 
-
-
+🔹 Common root causes (quick list)
+1.Readiness probe failing, so the Pod isn’t in endpoints
+2.App listening on 127.0.0.1 instead of 0.0.0.0
+3.targetPort doesn’t match the container port
+4.Service selector doesn’t match Pod labels
+5.Wrong Service type (ClusterIP used for external access)
+6.Ingress misconfigured, or no Ingress controller installed
+7.Security Group/firewall blocking the NodePort or LB
+8.NetworkPolicy blocking traffic
+9.DNS not pointing to the right LB/IP
+🔹 Interview-ready answer (say it like this)
+“Since the Pod is Running but users can’t reach the app, I’d troubleshoot layer by layer. 
+First I’d check kubectl get pods to see if it’s actually Ready, then check the logs. 
+Then I’d test the app from inside the Pod using curl localhost or kubectl port-forward to confirm the application itself works.
+If it does, I’d check the Service: whether the selector matches the Pod labels, whether targetPort is correct, and whether kubectl get endpoints shows the Pod IP. 
+Then I’d test the Service from another Pod. If that works, the problem is in the external layer, so I’d check the Ingress rules and controller, 
+the NodePort or LoadBalancer configuration, Security Groups, and DNS.
+I’d fix whichever layer fails and verify access again.”
 
