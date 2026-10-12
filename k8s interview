@@ -28,24 +28,12 @@ Dependencies
  Docker Container
 
 5.What is a Pod?
-*A Pod is the smallest deployable unit in K8s. 
-*It contains one or more containers that share the same network and storage resources.
-*Most commonly, we run one application container per Pod.
-*pod crashes k8s automatically create a new one.
-*pod are temporary -they can die anytime!ephemeral
-
  A Pod is the smallest deployable unit in Kubernetes.
-
  it can contains one or more containers that share the same network namespace and can share storage volumes.
-
  Most commonly, we run one application container per Pod.
-
  Pods are ephemeral, which means they are temporary and can be created, terminated, or replaced at any time.
-
  Each Pod gets its own IP address,
  and pods managed by controllers such as depolyment can be automatically replaced if thay fail
-
- 
 
 6.Why does Kubernetes use Pods instead of directly managing containers?
 Kubernetes uses Pods as an abstraction layer around containers. 
@@ -59,7 +47,6 @@ and those containers share the same network namespace and can share storage volu
 Pod
 ├── Application container
 └── Sidecar container
-For fresher interviews, remember:
 One Pod can contain one or more containers.
 
 1. What is kube-apiserver?
@@ -111,7 +98,8 @@ kubectl get events
 
 2.A Pod is in CrashLoopBackOff. What will you do?
 I will first check the container logs and 
-then describe the Pod to check events and configuration. I will investigate whether the application is crashing, the command is incorrect, a configuration is missing, or a health probe is failing
+then describe the Pod to check events and configuration. I will investigate whether the application is crashing,
+the command is incorrect, a configuration is missing, or a health probe is failing
 kubectl logs <pod-name>
 kubectl describe pod <pod-name>
 kubectl get events
@@ -188,7 +176,8 @@ A Service uses selectors to identify Pods based on their labels.
 scenario-based questions you
 1.Why can't we just use Pod IPs?
 Pod IPs are temporary because Pods are ephemeral. 
-If a Pod is deleted or recreated, the new Pod can get a different IP address. So instead of directly using Pod IPs, we use a Service, which provides a stable IP and DNS name.
+If a Pod is deleted or recreated, the new Pod can get a different IP address.
+So instead of directly using Pod IPs, we use a Service, which provides a stable IP and DNS name.
 2. Endpoints are empty. Give two reasons.
 Suppose:
 kubectl get endpoints devops-app-service
@@ -367,13 +356,15 @@ Spring Boot application
 I would check the Service configuration using kubectl describe svc. 
 The Service has targetPort: 8080, but the application is listening on port 9090.
 I would change the targetPort to 9090.
+
 🔥 Scenario 8 — Ingress
 Service → Pods → ✅ works
 But when users access:
 http://devops-app.local
 404 Not Found
 The Service works, but the Ingress returns 404. How would you troubleshoot this?"
-Since the Service is working, I would check the Ingress configuration. First, I would verify that the requested host matches the Ingress host and that the URL path matches the configured path. 
+Since the Service is working, I would check the Ingress configuration. First,
+I would verify that the requested host matches the Ingress host and that the URL path matches the configured path. 
 Then I would check whether the Ingress points to the correct Service and port.
 rules:
 - host: devops-app.local
@@ -419,9 +410,11 @@ kubectl get pods
 kubectl describe svc <service>
 kubectl describe ingress <ingress>
 kubectl logs <ingress-controller-pod>
+
 CONFIGMAP SENARIO
 1.Why is the Pod still using the old value, and how would you fix it?”
-If the ConfigMap value is injected as an environment variable, updating the ConfigMap does not automatically change the value inside an already-running container. 
+If the ConfigMap value is injected as an environment variable,
+updating the ConfigMap does not automatically change the value inside an already-running container. 
 You can restart the Deployment:
 kubectl rollout restart deployment/<deployment-name>
 
@@ -440,6 +433,7 @@ Namespace mismatch
 First, I would run kubectl describe pod <pod-name> and check the Events section. 
 Then I would verify that the Secret exists and check whether the Secret name and key referenced in the Deployment are correct. 
 I would also check the Deployment YAML for any configuration mistakes.
+
 🔥 Scenario 12 — HPA
 minReplicas: 2
 maxReplicas: 6
@@ -488,6 +482,56 @@ kubectl top pods
 Metrics Server
 
 CONFIGMAP AND SECRET
+ConfigMap:
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  APP_ENV: production
+  LOG_LEVEL: info
+Secret:
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque
+stringData:
+  DB_USER: admin
+  DB_PASSWORD: MyPass123     stringData lets you write plain text, and Kubernetes encodes it. With data: you must provide base64 yourself (echo -n 'MyPass123' | base64).
+Pod using ConfigMap and Secret as env variables:
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-pod
+spec:
+  containers:
+    - name: app
+      image: nginx
+      envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: db-secret
+Mounting a ConfigMap as a volume:
+spec:
+  containers:
+    - name: app
+      image: nginx
+      volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+  volumes:
+    - name: config-volume
+      configMap:
+        name: app-config
+
+kubectl create configmap app-config --from-literal=APP_ENV=production
+kubectl create secret generic db-secret --from-literal=DB_PASSWORD=MyPass123
+kubectl get cm,secret
+kubectl describe cm app-config
+kubectl get secret db-secret -o yaml
+echo '<encoded-value>' | base64 -d
 1.What is a ConfigMap?
 Interview answer:
 A ConfigMap is a Kubernetes resource used to store non-sensitive configuration data, such as application settings,
@@ -556,23 +600,108 @@ secretKeyRef:
   name: devops-app-secret
   key: DB_PASSWORD
 
-CreateContainerConfigError  How would you troubleshoot this?”
-First, I would run kubectl describe pod <pod-name> and check the Events section to understand why the container failed to start. 
-Then I would verify that the Secret name and key in secretKeyRef are correct and that the Secret exists in the same namespace.”
+CreateContainerConfigError --- How would you troubleshoot this?”
+* First, I would run kubectl describe pod <pod-name> and check the Events section to understand why the container failed to start. 
+Then I would verify that the Secret name and
+key in secretKeyRef are correct and that the Secret exists in the same namespace.”
+
 kubectl describe pod <pod-name>
 kubectl get secret devops-app-secret
 kubectl describe secret devops-app-secret
 CreateContainerConfigError → describe pod → check Events → verify Secret exists → verify Secret name/key/namespace → fix YAML → recreate/restart Pod.
 
+🔥 Scenario 3
+Your Pod is running, but the application is not receiving the expected ConfigMap value. What would you check?
+First, I would run kubectl describe pod <pod-name> and check whether the ConfigMap is referenced correctly.
+Then I would verify the ConfigMap using kubectl describe configmap <configmap-name>. 
+I would also check the Pod environment to confirm whether the expected value is present.”
+kubectl describe pod <pod-name>
+kubectl describe configmap <configmap-name>
+kubectl exec -it <pod-name> -- env
 
-Scenario— ConfigMap vs Secret
+🔥 Scenario 4— ConfigMap vs Secret
 Your application needs:
 - APP_ENVIRONMENT=production
 - DB_USERNAME=admin
 - DB_PASSWORD=secret123
 Question:
 Which values would you put in a ConfigMap and which in a Secret? And why?
-“I would use a ConfigMap for non-sensitive configuration such as APP_ENVIRONMENT=production. I would use a Secret for sensitive information such as DB_USERNAME and DB_PASSWORD. ConfigMap stores non-sensitive configuration, while Secret is designed for sensitive data. Secret values in Kubernetes can be stored as Base64-encoded data, but Base64 itself is not encryption.”
+“I would use a ConfigMap for non-sensitive configuration such as APP_ENVIRONMENT=production.
+I would use a Secret for sensitive information such as DB_USERNAME and DB_PASSWORD.
+ConfigMap stores non-sensitive configuration, while Secret is designed for sensitive data.
+Secret values in Kubernetes can be stored as Base64-encoded data, but Base64 itself is not encryption.”
+
+🔥Scenario 5: Secret troubleshooting
+our Pod is running, but the application shows:
+Database authentication failed
+Question: What would you check first, and which commands would you use?
+env:
+- name: DB_USERNAME
+  valueFrom:
+    secretKeyRef:
+      name: devops-app-secret
+      key: DB_USERNAME
+- name: DB_PASSWORD
+  valueFrom:
+    secretKeyRef:
+      name: devops-app-secret
+      key: DB_PASSWORD
+“First, I would check the Secret using kubectl describe secret <secret-name> and
+verify that the required keys such as DB_USERNAME and DB_PASSWORD exist. 
+Then I would check whether the Pod is referencing the correct Secret name and keys.”
+kubectl describe secret devops-app-secret
+kubectl describe pod <pod-name>
+
+🔥Scenario 6 — ConfigMap + Secret
+our Deployment has:
+envFrom:
+  - configMapRef:
+      name: devops-app-config
+  - secretRef:
+      name: devops-app-secret
+
+But the Pod shows:
+CreateContainerConfigError
+First, I would check the Pod status using kubectl get pods and then run kubectl describe pod <pod-name>
+to check the Events. Since the Pod has CreateContainerConfigError, 
+I would verify that both the ConfigMap and Secret exist using kubectl get configmap and kubectl get secret. 
+Then I would check whether the names referenced in the Deployment are correct.”
+
+Commands:kubectl get pods
+kubectl describe pod <pod-name>
+kubectl get configmap
+kubectl get secret
+kubectl describe configmap devops-app-config
+kubectl describe secret devops-app-secret
+⭐ Interview flow to remember
+Pod error → Describe Pod → Check Events → Check ConfigMap/Secret → Check names/keys → Fix → Restart/redeploy
+
+
+🔥Scenario 7
+“I updated the ConfigMap, but my application is still using the old value.”
+If the ConfigMap is updated but the application is still using the old value, 
+I would restart the Deployment. This creates new Pods, and the new Pods will load the updated ConfigMap value.”
+
+kubectl rollout restart deployment/<deployment-name>
+⭐ Remember
+ConfigMap updated → existing Pod still has old environment value → restart Deployment → new Pod gets new value.
+
+🔥Scenario 8
+You deleted a Pod manually:
+kubectl delete pod <pod-name>
+A new Pod was automatically created, but the new Pod still has the old ConfigMap value.
+Why could this happen?
+1. Check the ConfigMap:
+kubectl describe configmap <configmap-name>
+
+2. Check the new Pod's environment:
+kubectl exec -it <new-pod> -- env
+
+3. Verify the Deployment is referencing the correct ConfigMap:
+kubectl describe deployment <deployment-name>
+Interview answer
+“Deleting the Pod creates a new Pod, so normally the new Pod should get the updated ConfigMap value.
+If it still has the old value, I would verify the ConfigMap, check the Deployment reference, and check the environment inside the new Pod.”
 
 
 1.🔹 Scenario: Pod is Running, but users can’t access the application
@@ -638,4 +767,137 @@ If it does, I’d check the Service: whether the selector matches the Pod labels
 Then I’d test the Service from another Pod. If that works, the problem is in the external layer, so I’d check the Ingress rules and controller, 
 the NodePort or LoadBalancer configuration, Security Groups, and DNS.
 I’d fix whichever layer fails and verify access again.”
+
+PV AND PVC 
+PVC:
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: app-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+Pod using the PVC:
+spec:
+  containers:
+    - name: app
+      image: nginx
+      volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: app-pvc
+
+Troubleshooting
+1.Pod stuck in ContainerCreating / CreateContainerConfigError
+kubectl describe pod <pod-name>
+Common cause: the referenced ConfigMap or Secret doesn’t exist, is in a different namespace, or a key name is wrong. Events will say configmap "app-config" not found.
+
+2.PVC stuck in Pending
+kubectl describe pvc <pvc-name>
+kubectl get pv
+kubectl get storageclass
+Common causes:
+No PV matches the requested size/access mode
+No default StorageClass, or the wrong storageClassName
+The cloud provisioner (for example, EBS CSI driver on EKS) isn’t installed or lacks IAM permissions
+WaitForFirstConsumer mode: the PVC stays Pending until a Pod uses it (this is normal)
+
+3.Pod stuck in Pending because of a volume
+kubectl describe pod <pod-name>
+
+Look for unbound PersistentVolumeClaims, or a volume node-affinity conflict (an EBS volume lives in one availability zone, so the Pod must be scheduled in the same zone).
+4.Data lost after the Pod restarted
+You probably used emptyDir or no volume. Switch to a PVC-backed volume.
+
+5.App still uses old config after updating the ConfigMap/Secret
+kubectl rollout restart deployment <name>
+Env variables are read only at container start, so a restart is needed.
+
+6.Pod can’t write to the mounted volume (permission denied)
+Check the container’s user versus volume ownership. Fix with securityContext (fsGroup, runAsUser).
+
+SCENARIO QUESTION
+1.A database Pod was restarted and all data was lost. What went wrong and how do you fix it?
+Answer: Data was stored in the container filesystem or an emptyDir, both ephemeral.
+Use a PVC backed by persistent storage (EBS on AWS), and for databases prefer a StatefulSet so each Pod gets its own PVC.
+
+2.A PVC has been Pending for 10 minutes. How do you debug it?
+Answer: Run kubectl describe pvc to read the Events.
+Check whether a StorageClass exists (kubectl get sc) and matches the PVC, whether a PV with enough size and the right access mode exists, 
+and whether the storage provisioner (EBS CSI driver) is running with the right permissions. Also check whether the StorageClass uses WaitForFirstConsumer, in which case the PVC binds only after a Pod uses it.
+
+3.Scenario 5: You deleted a PVC. Is the data gone?
+Answer: It depends on the PV’s reclaim policy. With Delete, the PV and the underlying storage are removed. With Retain, the data stays and an admin must clean up or reuse it.
+Always check the reclaim policy for important data.
+
+4.Two Pods on different nodes need to write to the same volume. What do you use?
+Answer: An RWX-capable storage such as AWS EFS or NFS. EBS only supports RWO, 
+so it can’t be mounted read-write across multiple nodes.
+
+INGRESS
+1. What is an Ingress?
+An Ingress is an object that manages external HTTP/HTTPS access to Services inside the cluster.
+It provides host-based and path-based routing, and TLS termination, through a single entry point.
+
+2. Why use Ingress instead of a LoadBalancer Service for every app?
+Each LoadBalancer Service creates a separate cloud load balancer, which costs money. With Ingress, one load balancer can route to many Services
+User → Load Balancer → Ingress Controller → Ingress rules → Service → Pods
+
+3. What is an Ingress Controller?
+An Ingress resource is only a set of rules. The Ingress Controller (NGINX, AWS ALB Controller, Traefik)
+is the component that reads those rules and actually routes the traffic. Without a controller, the Ingress does nothing.
+Ingress:
+
+yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-ingress
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: myapp.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nginx-service
+                port:
+                  number: 80
+kubectl get ingress
+kubectl describe ingress app-ingress
+kubectl autoscale deployment nginx-deployment --cpu-percent=70 --min=2 --max=10
+
+Troubleshooting
+Ingress not working (404, 502, 503, or no address)
+kubectl get ingress
+kubectl describe ingress <name>
+kubectl get pods -n ingress-nginx
+kubectl get endpoints <service-name>
+
+Common causes:
+
+No Ingress Controller installed, or the wrong ingressClassName
+Wrong host/path rule
+Backend Service name or port is wrong
+Service has no endpoints (selector mismatch or Pods not Ready), which usually gives a 503
+DNS not pointing at the load balancer
+Security Group blocking traffic
+
+
+
+
+
+
+
+
+
 
