@@ -1,0 +1,372 @@
+Kubernetes HPA hands-on workflow
+
+Step 1:Check Metrics Server
+kubectl get pods -n kube-system              -- Look for metrics-server with Running status.
+kubectl top pods
+kubectl top nodes                             
+
+Remember: A running Metrics Server Pod does not guarantee that metrics are available.
+
+Step 2: Create the Deployment
+kubectl apply -f my-app.yaml
+kubectl get deployment my-app
+kubectl get pods
+
+resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "257Mi"
+
+Step 3: Expose your application
+kubectl expose deployment my-app --port=80 --type=NodePort
+kubectl get svc
+
+Step 4: Create the HPA
+Your hpa-app.yaml can target CPU or memory.
+For CPU utilization:
+metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+For memory utilization, change name: cpu to name: memory.
+kubectl apply -f hpa-app.yaml
+kubectl get hpa
+kubectl describe hpa hpa-app
+
+Step 5: Generate load and watch scaling
+Create a load-generator Pod:
+kubectl run load-generator \
+  --image=busybox:1.36 \
+  --restart=Never \
+  -- /bin/sh -c "while true; do wget -q -O- http://my-app; done"
+
+Terminal 1:
+kubectl get hpa hpa-app --watch
+Terminal 2:
+kubectl get deployment my-app -w
+Terminal 3:
+kubectl top pods
+
+Troubleshoot :
+When you changed the HPA metric from CPU to memory, you saw:
+memory: <unknown>/70%
+1. Check Metrics Server
+kubectl get pods -n kube-system
+kubectl top pods
+2. Check resource requests
+kubectl get deployment my-app -o yaml
+3. Check the HPA conditions
+kubectl describe hpa hpa-app
+4. Check the target Deployment
+kubectl get deployment my-app
+kubectl get pods -l app=my-app
+
+2.If HPA shows cpu: <unknown>/70%, Metrics Server is running, 
+and kubectl top pods works, but your Deployment has no CPU request:
+
+Step 1: Check the Deployment
+kubectl describe deployment my-app
+Step 2: Check the resource requests in YAML
+kubectl get deployment my-app -o yaml
+3.resources:
+  requests:
+    cpu: "100m"
+    memory: "128Mi"
+  limits:
+    cpu: "500m"
+    memory: "257Mi"
+Step 4: Verify the HPA
+kubectl get hpa hpa-app
+kubectl describe hpa hpa-app
+I would check the Deployment configuration and verify that CPU resource requests are defined. 
+If the CPU request is missing,
+I would update the Deployment YAML, apply it, and verify the HPA metrics again."
+
+3.Your HPA shows:Scenario:
+CPU utilization is 85%/70%, but replicas remain at 2.
+cpu: 85%/70%   MINPODS: 2   MAXPODS: 5   REPLICAS: 2
+CPU utilization is above the target, but the replica count is still 2.
+What would you check next?
+
+1. Check the HPA conditions and events
+kubectl describe hpa hpa-app
+2. Check whether the Deployment is scaling
+kubectl get deployment my-app -w
+3. Check the HPA again
+kubectl get hpa hpa-app
+4. Check the application Pods
+kubectl get pods -l app=my-app
+
+"I would first run kubectl describe hpa hpa-app to check the conditions and events. 
+Then I would monitor the Deployment and Pods to see whether scaling is happening.
+If replicas remain unchanged, 
+I would investigate any errors reported by the HPA."
+------------------------------------------------------------------
+Next interview question
+Your Deployment has 3 replicas, but one Pod is stuck in Pending.
+Which command would you run first, and what would you look for?
+Question: One Pod is stuck in Pending. How would you troubleshoot it?
+Answer: "First, I would run kubectl describe pod <pod-name> and check the Events section to identify
+why the Pod cannot be scheduled
+(or)   I use kubectl describe pod <pod-name> and check the Events section to identify why the Pod is Pending. 
+Common causes include insufficient CPU or memory, unbound PVCs, and node selector or affinity issues.
+kubectl get pods
+kubectl describ pod my-app-xxxxx
+Look at these common causes:
+-------------------------------
+Event or problem	                          Possible reason	                              What to check
+---------------------                      ------------------------                       -------------------------------
+Insufficient cpu	                        Not enough available CPU	                    Resource requests and node capacity
+Insufficient memory	                      Not enough available memory                  	Memory requests and node capacity
+FailedScheduling	                        Scheduler cannot find a suitable node	        Pod events and node status
+unbound immediate PersistentVolumeClaims	Storage claim is not bound                  	PVC and PV status
+Node selector or affinity mismatch	      No suitable node matches the rules	          Pod scheduling configuration
+pod has unbound immediate PersistentVolumeClaims   The PVC is not bound to a suitable PersistentVolume
+-----------------------------------------------------------------------------------------------------------------------------
+Your Pod is stuck in CrashLoopBackOff.
+kubectl get pods                      Check Pod status
+kubectl describe pod <pod-name>       Inspect details and events
+kubectl logs <pod-name>               Read current container logs   
+kubectl logs <pod-name> --previous    Read logs from the previous terminated container
+If a Pod is in CrashLoopBackOff, I would check its status, inspect events using kubectl describe pod, 
+and examine its current and previous container logs to identify why the container keeps restarting."
+----------------------------------------------------------------------------------------------------------
+Your Pod is showing ImagePullBackOff.
+kubectl describe pod <pod-name>
+What should you check?
+Look at the Events section at the bottom of the output.
+Error message                                Possible reason
+manifest unknown                    	Image tag doesn't exist
+pull access denied	                  Private image or authentication issue
+FailedToRetrieveImagePullSecret	      Image pull secret is missing or incorrect
+i/o timeout	                          Network or registry connectivity issue
+
+First, I use kubectl describe pod <pod-name> to check the Events section. 
+I look for errors such as an incorrect image name or tag, registry authentication issues, or network problems. 
+Then I fix the identified issue
+---------------------------------------------------------------------
+Your application Pod is in the Running state, but you cannot access it from your browser.
+What would you check first? Think about the Service, Pod labels, and ports.
+Step 1: Check the Service
+kubectl get svc
+kubectl describe svc <service-name>
+Step 2: Check the Pod labels
+kubectl get pods --show-labels
+Step 3: Check the Service endpoints
+kubectl get endpoints <service-name>
+kubectl get endpointslices
+Step 4: Check the Deployment and Pods
+kubectl describe deployment <deployment-name>
+kubectl get pods
+I would check the Service configuration using kubectl describe svc, verify that its selector matches the Pod labels, and check the endpoints. 
+Then I would verify that the targetPort matches the application's container port and confirm that the Pods are healthy.”
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+HPA create deployment
+----------------------------
+#first check metric server 
+kubectl get pod -n kube-system
+
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-app
+  template:
+    metadata:
+      labels:
+        app: my-app
+    spec:
+      containers:
+        - name: my-app
+          image: nginx
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "257Mi"
+
+Resource	            Meaning	                                    Example
+CPU	               m means millicore	                            100m = 0.1 CPU
+Memory	           Mi means mebibytes	                             128Mi
+Memory	           Gi means gibibytes	                             1Gi
+Requests	         Minimum resources  requested for scheduling	   100m, 128Mi
+Limits	           Maximum resources the container can use	       500m, 257Mi
+# service create 
+kubectl expose deployment myapp --port=80
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: hpa-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: my-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+
+Step	          Command 	                                            Purpose
+1	      kubectl apply -f my-app.yaml                    	          Create Deployment
+2      	kubectl expose deployment my-app --port=80 --type=NodePort	Expose application
+3	      kubectl apply -f hpa-app.yaml                            	  Create HPA
+4	      kubectl get pods -n kube-system                          	  Inspect system Pods
+5      	kubectl top pods	                                          Check resource usage
+6     	kubectl get hpa --watch                                 	  Observe scaling
+
+#pod
+kubectl run load-generator \
+  --image=busybox:1.36 \
+  --restart=Never \
+  -- /bin/sh -c "while true; do wget -q -O- http://my-app; done"
+
+What each part means
+Command	                            Purpose
+kubectl run load-generator        	Creates a Pod named load-generator
+--image=busybox:1.36              	Uses the BusyBox image
+--restart=Never	                    Creates a standalone Pod
+wget -q -O- http://my-app	          Sends HTTP requests to your Service and prints the response to standard output
+while true	                        Repeats the requests continuously
+
+KEEP WATCHING YOUR HPA       kubectl get hpa -w
+ANOTHER TERMINAL             kubectl get deployment my-app -w
+
+1.Interviewer: Your HPA target is 70%, but the current CPU utilization is 37%. Why are there still two Pods?
+Your answer:
+"The HPA monitors CPU utilization using metrics from the Metrics Server.
+My target utilization is 70%, but the current utilization is only 37%, which is below the target. 
+Therefore, the HPA keeps the replica count at two, which is my configured minimum
+
+2.Why does your Kubernetes Deployment maintain 2 replicas?
+Answer: "I configured an HPA with a minimum of 2 replicas, a maximum of 10 replicas,
+and a target CPU utilization of 70%. 
+Since the current CPU utilization is below the target, HPA keeps the replica count at 2."
+
+3.Question: Your HPA is configured for memory utilization at 70%, but the application remains at two replicas. Is it a problem?
+Answer: Not necessarily. I would verify that the HPA is targeting the correct Deployment, 
+check that memory requests are configured, confirm metrics are available, and inspect the HPA events. 
+If memory utilization remains below the target, two replicas may be the correct desired count.
+memory: <unknown>/70%
+kubectl get pods
+kubectl get deployment my-app
+kubectl top pods
+kubectl get deployment my-app -o yaml
+
+For memory utilization-based HPA, the Pods need memory requests so Kubernetes can calculate the percentage.
+
+metrics:
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+ If metrics are available but HPA still shows unknown
+Run:
+kubectl describe hpa hpa-app
+kubectl get apiservice v1beta1.metrics.k8s.io
+kubectl get pods -n kube-system
+
+3.What have you learned?
+You've now practiced two HPA configurations:
+- CPU-based HPA: name: cpu
+- Memory-based HPA: name: memory
+For memory-based scaling, your Deployment must have memory requests configured 
+so Kubernetes can calculate utilization.
+
+4. Your next interview question
+Suppose your HPA configuration is:
+- Minimum replicas: 2
+- Maximum replicas: 5
+- Target memory utilization: 70%
+Question: If memory utilization increases to 90%, what will HPA do?
+
+Interview answer: If memory utilization increases to 90%, above the configured target of 70%, HPA will calculate the desired number of replicas and may scale up the Deployment, up to the maximum of 5 replicas.
+
+Remember this example:
+Memory utilization    	HPA behavior
+2%	                    Maintains 2 replicas
+70%	                    Evaluates whether scaling is needed
+90%	                    May scale up
+After load decreases	  May scale down, subject to stabilization rules
+
+
+Interview question	                          Key answer
+What is HPA?	                                Automatically adjusts replica counts based on metrics.
+Why use Metrics Server?	                      Provides resource metrics such as CPU and memory.
+Why does HPA show unknown?                   	Metrics may be unavailable, or resource requests may be missing.
+Why are replicas always 2?	                  Two is the minimum, and the calculated desired count is currently two.
+Does a load-generator Pod guarantee scaling?	 No. The targeted application Pods must experience sufficient load.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Understand what happens
+Load generator
+Sends repeated HTTP requests
+        |
+Metrics Server + HPA
+HPA checks CPU utilization against 70%
+          |
+     Deployment
+HPA adjusts replicas when required
+
+
+
+
+
