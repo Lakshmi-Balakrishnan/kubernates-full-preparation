@@ -166,14 +166,25 @@ kubectl describe deployment <deployment-name>
 kubectl get pods
 I would check the Service configuration using kubectl describe svc, verify that its selector matches the Pod labels, and check the endpoints. 
 Then I would verify that the targetPort matches the application's container port and confirm that the Pods are healthy.”
+----------------------------------------------------------------------
+Next question
+Your Deployment has 3 desired replicas, but only 2 Pods are Running.
+What commands would you use to find out why the third Pod is not running? 
 
-
-
-
-
-
-
-
+Step 1: Check all Pods
+kubectl get pods
+Identify the third Pod and its status, such as Pending, CrashLoopBackOff, or ImagePullBackOff.
+Step 2: Describe the problematic Pod
+kubectl describe pod <pod-name>
+3.kubectl describe deployment <deployment-name>
+Common causes
+Pod status	                                 Possible cause
+Pending	                                  Insufficient CPU/memory or PVC issues
+ImagePullBackOff                         	Incorrect image or registry authentication
+CrashLoopBackOff	                        Application keeps crashing
+ContainerCreating	                        Image download, volume mount, or networking setup still in progress
+Interview answer: “First, I run kubectl get pods to identify the problematic Pod. Then I run kubectl describe pod <pod-name> 
+and check the Events section to find the root cause.”
 
 
 
